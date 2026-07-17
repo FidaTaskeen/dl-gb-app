@@ -5,6 +5,10 @@ import { useProtocol } from "../context/ProtocolContext";
 import { Link } from "react-router-dom";
 import LabelScanner from "../components/ScannerInput";
 import { parseLabelXml } from "../utils/xmlParser";
+import deviceImage from "../assets/device-image.png";
+import deviceBoxImage from "../assets/device-box-image.png";
+
+const AUTO_CLEAR_DELAY_MS = 10000;
 
 export default function CheckPage() {
   const { username, logout } = useAuth();
@@ -14,6 +18,7 @@ export default function CheckPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(null);
 
   const dlRef = useRef(null);
   const gbRef = useRef(null);
@@ -21,13 +26,30 @@ export default function CheckPage() {
   const gbDataRef = useRef(null);
   const loadingRef = useRef(false);
   const autoClearTimerRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
   const autoSubmittedRef = useRef(false);
 
   useEffect(() => { dlRef.current?.focus(); }, []);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
 
   useEffect(() => {
-    if (!result) return;
+    clearTimeout(autoClearTimerRef.current);
+    clearInterval(countdownIntervalRef.current);
+
+    if (!result) {
+      setCountdown(null);
+      return;
+    }
+
+    let secondsLeft = AUTO_CLEAR_DELAY_MS / 1000;
+    setCountdown(secondsLeft);
+
+    countdownIntervalRef.current = setInterval(() => {
+      secondsLeft -= 1;
+      setCountdown(secondsLeft > 0 ? secondsLeft : 0);
+      if (secondsLeft <= 0) clearInterval(countdownIntervalRef.current);
+    }, 1000);
+
     autoClearTimerRef.current = setTimeout(() => {
       dlRef.current?.clear();
       gbRef.current?.clear();
@@ -36,11 +58,15 @@ export default function CheckPage() {
       dlDataRef.current = null;
       gbDataRef.current = null;
       setResult(null);
+      setCountdown(null);
       autoSubmittedRef.current = false;
       dlRef.current?.focus();
-    }, 10000);
+    }, AUTO_CLEAR_DELAY_MS);
 
-    return () => clearTimeout(autoClearTimerRef.current);
+    return () => {
+      clearTimeout(autoClearTimerRef.current);
+      clearInterval(countdownIntervalRef.current);
+    };
   }, [result]);
 
   const handleLogout = () => {
@@ -114,7 +140,6 @@ export default function CheckPage() {
     gbRef.current?.focus();
   };
 
-  // Manual fallback: still allow submitting with Enter.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === "Enter" && dl && gb && !loadingRef.current) {
@@ -126,9 +151,6 @@ export default function CheckPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [dl, gb]);
 
-  // Auto-submit: the moment both DL and GB have been scanned, submit
-  // automatically without waiting for Enter or a button click.
-  // autoSubmittedRef guards against firing twice for the same pair.
   useEffect(() => {
     if (dl && gb && !loadingRef.current && !autoSubmittedRef.current) {
       autoSubmittedRef.current = true;
@@ -145,18 +167,25 @@ export default function CheckPage() {
             <div className="nav-box-row">
               <Link to="/dashboard" className="nav-box nav-box-solid">Dashboard</Link>
               <Link to="/reports" className="nav-box nav-box-outline">{protocol} Report</Link>
+              <span className="model-badge">
+                <span className="model-badge-label">Model</span>
+                <span className="model-badge-value">{protocol}</span>
+              </span>
             </div>
           </div>
           <div className="header-right">
-            <span className="username-tag">Mode: {protocol}</span>
             <span className="username-tag">{username}</span>
             <button className="btn-ghost" onClick={handleLogout}>Logout</button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="panel panel-accent scan-box">
+        {/* DL and GB side by side, equal width/height, each with a static device image */}
+        <div className="check-scan-row">
+          <div className="panel panel-accent scan-box-equal scan-box-with-image">
+            <div className="scan-box-image-wrap">
+              <img src={deviceImage} alt="IoT Gateway device" className="scan-box-image" />
+            </div>
+            <div className="scan-box-content">
               <h3 className="scan-box-title">DL — Device Label</h3>
               <LabelScanner
                 ref={dlRef}
@@ -166,8 +195,13 @@ export default function CheckPage() {
                 validate={validateDl}
               />
             </div>
+          </div>
 
-            <div className="panel panel-accent scan-box">
+          <div className="panel panel-accent scan-box-equal scan-box-with-image">
+            <div className="scan-box-image-wrap">
+              <img src={deviceBoxImage} alt="IoT Gateway retail box" className="scan-box-image" />
+            </div>
+            <div className="scan-box-content">
               <h3 className="scan-box-title">GB — Gift Box</h3>
               <LabelScanner
                 ref={gbRef}
@@ -177,35 +211,49 @@ export default function CheckPage() {
               />
             </div>
           </div>
-
-          {result && (
-            <div className="panel result-panel" style={{ flexShrink: 0, width: 260, alignSelf: "stretch" }}>
-              <span
-                className={`status-light ${result.status === "PASS" ? "status-pass" : "status-fail"}`}
-                style={{ width: 18, height: 18 }}
-              />
-              <span className={`result-status ${result.status === "PASS" ? "status-pass" : "status-fail"}`}>
-                {result.status}
-              </span>
-              {result.status === "FAIL" && (
-                <p className="result-mismatch">Mismatch: {result.mismatchParams}</p>
-              )}
-              <p style={{ fontSize: 12, color: "#8A93A0", marginTop: 10 }}>
-                Clearing automatically in 10 seconds...
-              </p>
-            </div>
-          )}
         </div>
 
         {error && <p className="error-text">{error}</p>}
 
-        <button
-          onClick={submitCheck}
-          disabled={loading || !dl || !gb}
-          className="submit-btn"
-        >
-          {loading ? "Checking..." : "Submit Check"}
-        </button>
+        {!result && (
+          <button
+            onClick={submitCheck}
+            disabled={loading || !dl || !gb}
+            className="submit-btn"
+          >
+            {loading ? "Checking..." : "Submit Check"}
+          </button>
+        )}
+
+        <div className="check-result-row">
+          <div className="panel result-panel result-panel-centered">
+            <h3 className="result-title">Status</h3>
+            {result ? (
+              <>
+                <span
+                  className={`status-light ${result.status === "PASS" ? "status-pass" : "status-fail"}`}
+                  style={{ width: 18, height: 18 }}
+                />
+                <span className={`result-status ${result.status === "PASS" ? "status-pass" : "status-fail"}`}>
+                  {result.status}
+                </span>
+                {result.status === "FAIL" && (
+                  <p className="result-mismatch">Mismatch: {result.mismatchParams}</p>
+                )}
+                {countdown !== null && countdown > 0 && (
+                  <p className="auto-clear-countdown">
+                    Clearing in {countdown} second{countdown === 1 ? "" : "s"}...
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="result-status result-pending">—</span>
+                <p className="result-mismatch">Awaiting check</p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

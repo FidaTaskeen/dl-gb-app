@@ -1,10 +1,14 @@
 import ExcelJS from "exceljs";
 
-const DL_FILL = "FFDCEAF7";
-const GB_FILL = "FFE2F0E2";
+const DL_FILL = "FFEFF6FF";
+const GB_FILL = "FFFFF7ED";
+const DL_HEADER_FILL = "FFDBEAFE";
+const GB_HEADER_FILL = "FFFFEDD5";
 const HEADER_FILL = "FF1E1B2E";
 const MISMATCH_FILL = "FFFFC7CE";
 const MISMATCH_FONT = "FF9C0006";
+const FAIL_FONT = "FFDC2626";
+const PASS_FONT = "FF16A34A";
 
 const FIELD_KEY_MAP = { RSN: "srno", IMEI: "imei", EAN: "ean", ICCID: "iccid", "MAC ID": "macId" };
 const MISMATCH_ALIAS = { RSN: "RSN", IMEI: "IMEI", EAN: "EAN", "MAC ID": "MACID" };
@@ -19,6 +23,7 @@ export async function downloadExcelReport(records, protocolType, dateLabel) {
   const columns = [
     { header: "S.No", key: "sno", width: 8 },
     ...fields.map((f) => ({ header: `DL ${f}`, key: `dl_${f}`, width: 22 })),
+    { header: "", key: "spacer", width: 4 }, // blank spacer column between DL and GB
     ...fields.map((f) => ({ header: `GB ${f}`, key: `gb_${f}`, width: 22 })),
     { header: "Status", key: "status", width: 12 },
     { header: "Failure Reason", key: "reason", width: 20 },
@@ -27,9 +32,26 @@ export async function downloadExcelReport(records, protocolType, dateLabel) {
   ];
   sheet.columns = columns;
 
-  sheet.getRow(1).eachCell((cell) => {
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_FILL } };
+  sheet.getRow(1).eachCell((cell, colNumber) => {
+    const col = columns[colNumber - 1];
+    const isDl = col.key.startsWith("dl_");
+    const isGb = col.key.startsWith("gb_");
+
+    if (col.key === "spacer") {
+      // No fill, no border, no text — pure visual gap.
+      return;
+    }
+
+    if (isDl) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DL_HEADER_FILL } };
+      cell.font = { bold: true, color: { argb: "FF1E2328" } };
+    } else if (isGb) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GB_HEADER_FILL } };
+      cell.font = { bold: true, color: { argb: "FF1E2328" } };
+    } else {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_FILL } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    }
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
 
@@ -44,6 +66,7 @@ export async function downloadExcelReport(records, protocolType, dateLabel) {
 
     const rowData = { sno: i + 1 };
     fields.forEach((f) => { rowData[`dl_${f}`] = String(r.dl?.[FIELD_KEY_MAP[f]] || "-"); });
+    rowData.spacer = ""; // always blank
     fields.forEach((f) => { rowData[`gb_${f}`] = String(r.gb?.[FIELD_KEY_MAP[f]] || "-"); });
     rowData.status = r.status;
     rowData.reason = r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`;
@@ -54,11 +77,17 @@ export async function downloadExcelReport(records, protocolType, dateLabel) {
 
     row.eachCell((cell, colNumber) => {
       const col = columns[colNumber - 1];
+
+      if (col.key === "spacer") {
+        // Leave completely blank — no fill, no border, no formatting.
+        return;
+      }
+
       const isDl = col.key.startsWith("dl_");
       const isGb = col.key.startsWith("gb_");
 
       if (isDl || isGb) {
-        cell.numFmt = "@"; // force plain text — prevents scientific notation & "+" signs
+        cell.numFmt = "@";
       }
 
       const fieldName = col.key.replace(/^dl_|^gb_/, "");
@@ -71,6 +100,11 @@ export async function downloadExcelReport(records, protocolType, dateLabel) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DL_FILL } };
       } else if (isGb) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GB_FILL } };
+      } else if (col.key === "status") {
+        cell.font = {
+          bold: true,
+          color: { argb: r.status === "PASS" ? PASS_FONT : FAIL_FONT },
+        };
       }
 
       cell.alignment = { vertical: "middle", horizontal: "center" };

@@ -19,7 +19,7 @@ h3 { font-size: 20px; }
 
 /* ---------- Layout ---------- */
 .page-container {
-  max-width: 1100px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 50px 24px 70px;
 }
@@ -32,7 +32,7 @@ h3 { font-size: 20px; }
   margin-bottom: 32px;
 }
 .page-title { font-size: 30px; }
-.header-right { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.header-right { display: flex; align-items: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
 .username-tag { font-weight: 700; font-size: 15px; color: #4B5560; }
 
 .page-check, .page-reports, .page-dashboard {
@@ -50,49 +50,140 @@ h3 { font-size: 20px; }
 }
 .panel-accent { border-left: 6px solid #F5A623; }
 
-/* ---------- Check page layout: scans on left (unchanged size), small status box on right ---------- */
-.check-layout {
-  display: flex;
+/* ---------- Check page: DL/GB side by side, equal size, responsive ---------- */
+.check-scan-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
   align-items: stretch;
-  gap: 28px;
+  margin-bottom: 20px;
 }
-.check-scan-column {
-  flex: 2;
-  min-width: 0;
+.scan-box-equal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-.check-result-column {
-  flex: 1;
-  max-width: 1000px;   /* was 220px */
+@media (max-width: 768px) {
+  .check-scan-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- Scan boxes: image on left, content on right ---------- */
+.scan-box-with-image {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  padding: 36px;
+  min-height: 320px;
+}
+.scan-box-image-wrap {
+  flex: 0 0 32%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.scan-box-image {
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.scan-box-content {
+  flex: 1 1 68%;
+  min-width: 0;
+}
+.scan-box-content .scan-box-title {
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .scan-box-image-wrap { flex-basis: 30%; }
+  .scan-box-with-image { gap: 18px; padding: 24px; min-height: 260px; }
+  .scan-box-image { max-height: 240px; }
+}
+
+@media (max-width: 640px) {
+  .scan-box-with-image {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+  }
+  .scan-box-image-wrap {
+    flex-basis: auto;
+    width: 100%;
+  }
+  .scan-box-image {
+    max-height: 160px;
+  }
+  .scan-box-content {
+    flex-basis: auto;
+    width: 100%;
+  }
+}
+
+/* ---------- Result section: centered below scan boxes, larger ---------- */
+.check-result-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+.result-panel-centered {
+  max-width: 480px;
+  width: 100%;
+}
 .result-panel {
-  width: 200%;
-  min-height: 600px;  /* new — makes it noticeably taller */
+  width: 100%;
+  min-height: 260px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 32px 24px;  /* was 20px 16px */
+  padding: 44px 32px;
 }
-.result-status {
-  font-size: 40px;     /* was 24px */
-  font-weight: 1000;
-  vertical-align: middle;
+.result-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8A93A0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
 }
-.result-pending {
-  color: #C7CDD4;
-  font-size: 40px;
-}
-.result-status { font-size: 40px; font-weight: 800; vertical-align: middle; }
-.result-pending { color: #C7CDD4; font-size: 24px; }
+.result-status { font-size: 52px; font-weight: 800; vertical-align: middle; }
+.result-pending { color: #C7CDD4; font-size: 52px; }
 .result-mismatch { margin-top: 8px; font-weight: 600; font-size: 13px; color: #4B5560; }
 
-@media (max-width: 860px) {
-  .check-layout { flex-direction: column; }
-  .check-result-column { max-width: none; }
+.auto-clear-countdown {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #B9790A;
+  font-weight: 700;
+}
+
+/* ---------- Model badge ---------- */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #FFF4E0, #FFE8C2);
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.25);
+  border: 1px solid #F5D9A0;
+}
+.model-badge-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #B9790A;
+}
+.model-badge-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #7A4F0A;
 }
 
 /* ---------- Scan boxes ---------- */
@@ -104,11 +195,11 @@ h3 { font-size: 20px; }
 
 .scan-textarea {
   width: 100%;
-  min-height: 120px;
+  min-height: 90px;
   font-family: "Consolas", "SF Mono", monospace;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.65;
-  padding: 18px 20px;
+  padding: 20px 22px;
   border: 2px solid #D9E0E5;
   border-radius: 12px;
   background: #FAFBFC;
@@ -195,7 +286,7 @@ button:disabled { background: #E4E9EC; color: #A7B0B7; cursor: not-allowed; }
 .nav-box:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(30,35,40,0.1); text-decoration: none; }
 .nav-box-solid { background: #F5A623; color: #1E2328; }
 .nav-box-outline { background: #FFFFFF; color: #1E2328; border-color: #D9E0E5; }
-.nav-box-row { display: flex; gap: 12px; margin-top: 12px; }
+.nav-box-row { display: flex; gap: 12px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
 
 /* ---------- Status ---------- */
 .status-light {
@@ -210,7 +301,7 @@ button:disabled { background: #E4E9EC; color: #A7B0B7; cursor: not-allowed; }
 .status-pass { color: #16A34A; }
 .status-fail { color: #DC2626; }
 
-.error-text { color: #DC2626; font-weight: 900; margin: 20px 0; }
+.error-text { color: #DC2626; font-weight: 700; margin: 18px 0; }
 
 /* ---------- Table (Reports) ---------- */
 table { font-size: 16px; width: 100%; border-collapse: collapse; }
@@ -253,6 +344,50 @@ a:hover { text-decoration: underline; }
 .dash-card-amber .dash-num { color: #F5A623; }
 .dash-card-violet { border-left: 6px solid #8B7FF0; }
 .dash-card-violet .dash-num { color: #8B7FF0; }
+
+/* ---------- "Scanned By" hover popup (used on Reports page) ---------- */
+.user-popup-wrapper {
+  position: relative;
+  display: inline-block;
+  cursor: default;
+}
+.user-popup-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4B5560;
+  background: #F1F3F6;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.user-popup-tooltip {
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1E2328;
+  color: #FFFFFF;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+.user-popup-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1E2328;
+}
+.user-popup-wrapper:hover .user-popup-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
