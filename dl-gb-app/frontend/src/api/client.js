@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const client = axios.create({
-  baseURL: "/api",
+  baseURL: "https://dl-gb-backend.onrender.com/api",
   headers: {
     "ngrok-skip-browser-warning": "true",
   },
