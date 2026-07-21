@@ -40,4 +40,15 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Deletes every document in the records collection only.
+// Does not touch users, auth, or any other collection.
+router.delete("/clear-all", async (req, res) => {
+  try {
+    const result = await Record.deleteMany({});
+    res.json({ deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
