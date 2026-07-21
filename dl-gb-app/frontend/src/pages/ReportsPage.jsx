@@ -46,9 +46,18 @@ export default function ReportsPage() {
     return "Other";
   };
 
+  // Compute mismatches directly from the DL/GB values on the record itself,
+  // instead of parsing the mismatchParams text. This guarantees the
+  // highlighting always matches what's actually displayed in the row,
+  // regardless of how mismatchParams was formatted by the backend.
   const getMismatchSet = (r) => {
-    if (r.status === "PASS" || !r.mismatchParams) return new Set();
-    return new Set(r.mismatchParams.split(",").map((s) => s.trim().toUpperCase()));
+    const mismatches = new Set();
+    if ((r.dl?.srno || "") !== (r.gb?.srno || "")) mismatches.add("RSN");
+    if ((r.dl?.imei || "") !== (r.gb?.imei || "")) mismatches.add("IMEI");
+    if ((r.dl?.ean || "") !== (r.gb?.ean || "")) mismatches.add("EAN");
+    if ((r.dl?.iccid || "") !== (r.gb?.iccid || "")) mismatches.add("ICCID");
+    if (getProtocol(r) === "Zigbee" && (r.dl?.macId || "") !== (r.gb?.macId || "")) mismatches.add("MACID");
+    return mismatches;
   };
 
   const filteredRecords = records.filter((r) => getProtocol(r) === protocol);
@@ -83,8 +92,18 @@ export default function ReportsPage() {
             <thead>
               <tr>
                 <th rowSpan={2}>S.No</th>
-                <th colSpan={showMacId ? 5 : 4} style={{ textAlign: "center", background: DL_HEADER_BG, borderLeft: "3px solid #93C5FD" }}>DL</th>
-                <th colSpan={showMacId ? 5 : 4} style={{ textAlign: "center", background: GB_HEADER_BG, borderLeft: "3px solid #FDBA74" }}>GB</th>
+                <th
+                  colSpan={showMacId ? 5 : 4}
+                  style={{ textAlign: "center", background: DL_HEADER_BG, borderLeft: "3px solid #93C5FD" }}
+                >
+                  DL
+                </th>
+                <th
+                  colSpan={showMacId ? 5 : 4}
+                  style={{ textAlign: "center", background: GB_HEADER_BG, borderLeft: "3px solid #FDBA74" }}
+                >
+                  GB
+                </th>
                 <th rowSpan={2}>Status</th>
                 <th rowSpan={2}>Failure Reason</th>
                 <th rowSpan={2}>Date & Time</th>
@@ -113,12 +132,12 @@ export default function ReportsPage() {
                     <td style={{ ...cellStyle(mismatch.has("RSN"), DL_BG), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
                     <td style={cellStyle(mismatch.has("IMEI"), DL_BG)}>{r.dl?.imei || "-"}</td>
                     <td style={cellStyle(mismatch.has("EAN"), DL_BG)}>{r.dl?.ean || "-"}</td>
-                    <td style={cellStyle(false, DL_BG)}>{r.dl?.iccid || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), DL_BG)}>{r.dl?.iccid || "-"}</td>
                     {showMacId && <td style={cellStyle(mismatch.has("MACID"), DL_BG)}>{r.dl?.macId || "-"}</td>}
                     <td style={{ ...cellStyle(mismatch.has("RSN"), GB_BG), borderLeft: "3px solid #FDBA74" }}>{r.gb?.srno || "-"}</td>
                     <td style={cellStyle(mismatch.has("IMEI"), GB_BG)}>{r.gb?.imei || "-"}</td>
                     <td style={cellStyle(mismatch.has("EAN"), GB_BG)}>{r.gb?.ean || "-"}</td>
-                    <td style={cellStyle(false, GB_BG)}>{r.gb?.iccid || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), GB_BG)}>{r.gb?.iccid || "-"}</td>
                     {showMacId && <td style={cellStyle(mismatch.has("MACID"), GB_BG)}>{r.gb?.macId || "-"}</td>}
                     <td>
                       <span className={`status-light ${r.status === "PASS" ? "status-pass" : "status-fail"}`} />
