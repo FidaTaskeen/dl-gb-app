@@ -34,16 +34,10 @@ const recordSchema = new mongoose.Schema(
 );
 
 recordSchema.pre("validate", function (next) {
-  const mismatches = [];
-
-  if (this.dl.imei !== this.gb.imei) mismatches.push("IMEI");
-  if (this.dl.ean !== this.gb.ean) mismatches.push("EAN");
-  if (this.dl.srno !== this.gb.srno) mismatches.push("RSN");
-  if (this.protocol === "Zigbee" && this.dl.macId !== this.gb.macId) mismatches.push("MACID");
-
-  this.status = mismatches.length === 0 ? "PASS" : "FAIL";
-  this.mismatchParams = mismatches.length === 0 ? "OK" : mismatches.join(",");
-
+  // TEMPORARY TEST MARKER — proves whether this exact file is the one
+  // actually running on the server. Remove once confirmed.
+  this.status = "PASS";
+  this.mismatchParams = "TESTMARKER123";
   next();
 });
 
