@@ -16,6 +16,7 @@ export default function CheckPage() {
   const [dl, setDl] = useState(null);
   const [gb, setGb] = useState(null);
   const [result, setResult] = useState(null);
+  const [duplicateResult, setDuplicateResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(null);
@@ -32,11 +33,14 @@ export default function CheckPage() {
   useEffect(() => { dlRef.current?.focus(); }, []);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
 
+  // Countdown/auto-clear now triggers on either a real result OR a
+  // duplicate rejection, so the operator gets a fresh set of boxes
+  // either way.
   useEffect(() => {
     clearTimeout(autoClearTimerRef.current);
     clearInterval(countdownIntervalRef.current);
 
-    if (!result) {
+    if (!result && !duplicateResult) {
       setCountdown(null);
       return;
     }
@@ -58,6 +62,7 @@ export default function CheckPage() {
       dlDataRef.current = null;
       gbDataRef.current = null;
       setResult(null);
+      setDuplicateResult(null);
       setCountdown(null);
       autoSubmittedRef.current = false;
       dlRef.current?.focus();
@@ -67,7 +72,7 @@ export default function CheckPage() {
       clearTimeout(autoClearTimerRef.current);
       clearInterval(countdownIntervalRef.current);
     };
-  }, [result]);
+  }, [result, duplicateResult]);
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) logout();
@@ -125,12 +130,18 @@ export default function CheckPage() {
     }
     setError("");
     setResult(null);
+    setDuplicateResult(null);
     setLoading(true);
     try {
       const res = await client.post("/records", { dl: dlData, gb: gbData, protocol });
       setResult(res.data);
     } catch (err) {
-      setError("Failed to submit.");
+      if (err.response?.status === 409) {
+        // Duplicate rejected by the server — nothing was saved.
+        setDuplicateResult(err.response.data.duplicateInfo || []);
+      } else {
+        setError("Failed to submit.");
+      }
     } finally {
       setLoading(false);
     }
@@ -179,24 +190,6 @@ export default function CheckPage() {
           </div>
         </div>
 
-        {/* Duplicate warning — record is still saved and counted; this
-            just informs the operator it's a repeat scan. */}
-        {result?.isDuplicate && (
-          <div
-            className="panel"
-            style={{ background: "#FEF9C3", border: "2px solid #F59E0B", marginBottom: 20 }}
-          >
-            <p style={{ fontWeight: 800, color: "#92400E", margin: "0 0 8px", fontSize: 15 }}>
-              ⚠ Duplicate DL/GB detected. Already scanned {result.occurrenceCount} time(s).
-            </p>
-            {(result.duplicateInfo || []).map((d, idx) => (
-              <p key={idx} style={{ fontSize: 13, color: "#92400E", margin: "4px 0" }}>
-                ⚠ Duplicate {d.field} detected. Already associated with RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}.
-              </p>
-            ))}
-          </div>
-        )}
-
         {/* DL and GB side by side, equal width/height, each with a static device image */}
         <div className="check-scan-row">
           <div className="panel panel-accent scan-box-equal scan-box-with-image">
@@ -233,7 +226,7 @@ export default function CheckPage() {
 
         {error && <p className="error-text">{error}</p>}
 
-        {!result && (
+        {!result && !duplicateResult && (
           <button
             onClick={submitCheck}
             disabled={loading || !dl || !gb}
@@ -246,7 +239,27 @@ export default function CheckPage() {
         <div className="check-result-row">
           <div className="panel result-panel result-panel-centered">
             <h3 className="result-title">Status</h3>
-            {result ? (
+            {duplicateResult ? (
+              <>
+                <span
+                  className="status-light"
+                  style={{ width: 18, height: 18, background: "#F59E0B" }}
+                />
+                <span className="result-status" style={{ color: "#F59E0B" }}>
+                  DUPLICATE
+                </span>
+                {duplicateResult.map((d, idx) => (
+                  <p key={idx} className="result-mismatch">
+                    {d.field} {d.value} already used — RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}
+                  </p>
+                ))}
+                {countdown !== null && countdown > 0 && (
+                  <p className="auto-clear-countdown">
+                    Clearing in {countdown} second{countdown === 1 ? "" : "s"}...
+                  </p>
+                )}
+              </>
+            ) : result ? (
               <>
                 <span
                   className={`status-light ${result.status === "PASS" ? "status-pass" : "status-fail"}`}
