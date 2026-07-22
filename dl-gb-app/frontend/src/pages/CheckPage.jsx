@@ -179,20 +179,19 @@ export default function CheckPage() {
           </div>
         </div>
 
-        {/* Duplicate warning banner — shown as soon as the result comes
-            back, if any IMEI/RSN/ICCID/EAN in this scan already exists
-            in a previous record. */}
+        {/* Duplicate warning — record is still saved and counted; this
+            just informs the operator it's a repeat scan. */}
         {result?.isDuplicate && (
           <div
             className="panel"
             style={{ background: "#FEF9C3", border: "2px solid #F59E0B", marginBottom: 20 }}
           >
             <p style={{ fontWeight: 800, color: "#92400E", margin: "0 0 8px", fontSize: 15 }}>
-              ⚠ Duplicate Detected
+              ⚠ Duplicate DL/GB detected. Already scanned {result.occurrenceCount} time(s).
             </p>
             {(result.duplicateInfo || []).map((d, idx) => (
               <p key={idx} style={{ fontSize: 13, color: "#92400E", margin: "4px 0" }}>
-                <b>{d.field} {d.value}</b> is already used — RSN: {d.matchedRsn || "-"}, IMEI: {d.matchedImei || "-"}, ICCID: {d.matchedIccid || "-"}, EAN: {d.matchedEan || "-"}
+                ⚠ Duplicate {d.field} detected. Already associated with RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}.
               </p>
             ))}
           </div>
