@@ -9,7 +9,6 @@ const GB_BG = "#FFF7ED";
 const DL_HEADER_BG = "#DBEAFE";
 const GB_HEADER_BG = "#FFEDD5";
 const MISMATCH_BG = "#FEF2F2";
-const DUPLICATE_ROW_BG = "#FEFCE8";
 
 export default function ReportsPage() {
   const { protocol } = useProtocol();
@@ -103,7 +102,7 @@ export default function ReportsPage() {
                 </th>
                 <th rowSpan={2}>Status</th>
                 <th rowSpan={2}>Failure Reason</th>
-                <th rowSpan={2}>Duplicate Field</th>
+                <th rowSpan={2}>Duplicate</th>
                 <th rowSpan={2}>Date & Time</th>
                 <th rowSpan={2}>Scanned By</th>
               </tr>
@@ -124,29 +123,49 @@ export default function ReportsPage() {
               {filteredRecords.map((r, i) => {
                 const mismatch = getMismatchSet(r);
                 const scannedBy = getScannedBy(r);
-                const rowBg = r.isDuplicate ? DUPLICATE_ROW_BG : undefined;
                 return (
-                  <tr key={r._id} style={{ background: rowBg }}>
+                  <tr key={r._id}>
                     <td>{i + 1}</td>
-                    <td style={{ ...cellStyle(mismatch.has("RSN"), r.isDuplicate ? rowBg : DL_BG), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
-                    <td style={cellStyle(mismatch.has("IMEI"), r.isDuplicate ? rowBg : DL_BG)}>{r.dl?.imei || "-"}</td>
-                    <td style={cellStyle(mismatch.has("EAN"), r.isDuplicate ? rowBg : DL_BG)}>{r.dl?.ean || "-"}</td>
-                    <td style={cellStyle(mismatch.has("ICCID"), r.isDuplicate ? rowBg : DL_BG)}>{r.dl?.iccid || "-"}</td>
-                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), r.isDuplicate ? rowBg : DL_BG)}>{r.dl?.macId || "-"}</td>}
-                    <td style={{ ...cellStyle(mismatch.has("RSN"), r.isDuplicate ? rowBg : GB_BG), borderLeft: "3px solid #FDBA74" }}>{r.gb?.srno || "-"}</td>
-                    <td style={cellStyle(mismatch.has("IMEI"), r.isDuplicate ? rowBg : GB_BG)}>{r.gb?.imei || "-"}</td>
-                    <td style={cellStyle(mismatch.has("EAN"), r.isDuplicate ? rowBg : GB_BG)}>{r.gb?.ean || "-"}</td>
-                    <td style={cellStyle(mismatch.has("ICCID"), r.isDuplicate ? rowBg : GB_BG)}>{r.gb?.iccid || "-"}</td>
-                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), r.isDuplicate ? rowBg : GB_BG)}>{r.gb?.macId || "-"}</td>}
+                    <td style={{ ...cellStyle(mismatch.has("RSN"), DL_BG), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
+                    <td style={cellStyle(mismatch.has("IMEI"), DL_BG)}>{r.dl?.imei || "-"}</td>
+                    <td style={cellStyle(mismatch.has("EAN"), DL_BG)}>{r.dl?.ean || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), DL_BG)}>{r.dl?.iccid || "-"}</td>
+                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), DL_BG)}>{r.dl?.macId || "-"}</td>}
+                    <td style={{ ...cellStyle(mismatch.has("RSN"), GB_BG), borderLeft: "3px solid #FDBA74" }}>{r.gb?.srno || "-"}</td>
+                    <td style={cellStyle(mismatch.has("IMEI"), GB_BG)}>{r.gb?.imei || "-"}</td>
+                    <td style={cellStyle(mismatch.has("EAN"), GB_BG)}>{r.gb?.ean || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), GB_BG)}>{r.gb?.iccid || "-"}</td>
+                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), GB_BG)}>{r.gb?.macId || "-"}</td>}
                     <td>
                       <span className={`status-light ${r.status === "PASS" ? "status-pass" : "status-fail"}`} />
                       <span className={r.status === "PASS" ? "status-pass" : "status-fail"}>{r.status}</span>
                     </td>
                     <td>{r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`}</td>
                     <td>
-                      {r.isDuplicate
-                        ? (r.duplicateInfo || []).map((d) => d.field).join(", ")
-                        : "-"}
+                      {r.isDuplicate ? (
+                        <span
+                          title={(r.duplicateInfo || [])
+                            .map((d) => `${d.field} ${d.value} — also used with RSN ${d.matchedRsn || "-"}, IMEI ${d.matchedImei || "-"}, ICCID ${d.matchedIccid || "-"}`)
+                            .join("\n")}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            background: "#FFFBEB",
+                            border: "1.5px solid #F59E0B",
+                            color: "#B45309",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            cursor: "help",
+                          }}
+                        >
+                          ⚠ {(r.duplicateInfo || []).map((d) => d.field).join(", ")}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#9CA3AF", fontSize: 13 }}>—</span>
+                      )}
                     </td>
                     <td>{new Date(r.createdAt).toLocaleString()}</td>
                     <td>
