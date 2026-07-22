@@ -75,7 +75,6 @@ export default function ReportsPage() {
         <h2 style={{ fontSize: 35, color: "black", margin: 0 }}>{protocol} Report</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Link to="/dashboard" style={{ color: "black" }}>Dashboard</Link>
-          <Link to="/duplicates" style={{ color: "black" }}>Duplicates</Link>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "auto" }} />
           <button onClick={handleDownload}>Download Excel</button>
         </div>
