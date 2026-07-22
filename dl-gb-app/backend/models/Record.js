@@ -29,6 +29,21 @@ const recordSchema = new mongoose.Schema(
     status: { type: String, enum: ["PASS", "FAIL"], required: true },
     mismatchParams: { type: String, default: "OK" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    // Partial duplicate tracking only — a record is only ever saved
+    // with this set when SOME (not all) identity fields matched a
+    // previous record. Full duplicates are rejected before creation
+    // and never reach here.
+    isDuplicate: { type: Boolean, default: false },
+    duplicateInfo: [
+      {
+        field: String, // "RSN" | "IMEI" | "ICCID" | "MACID"
+        value: String,
+        matchedRsn: String,
+        matchedImei: String,
+        matchedIccid: String,
+      },
+    ],
   },
   { timestamps: true }
 );

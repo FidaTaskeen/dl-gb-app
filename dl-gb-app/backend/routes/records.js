@@ -13,8 +13,10 @@ const DUPLICATE_CHECK_FIELDS = [
   { key: "macId", label: "MACID" },
 ];
 
-async function findDuplicates(dl, gb) {
-  const duplicateInfo = [];
+// Finds every previous record that shares an RSN/IMEI/ICCID/MACID with
+// the current dl/gb data, per field.
+async function findFieldMatches(dl, gb) {
+  const matches = [];
 
   for (const { key, label } of DUPLICATE_CHECK_FIELDS) {
     const dlVal = dl?.[key];
@@ -27,9 +29,10 @@ async function findDuplicates(dl, gb) {
       }).sort({ createdAt: -1 });
 
       if (existing) {
-        duplicateInfo.push({
+        matches.push({
           field: label,
           value: val,
+          matchedRecordId: String(existing._id),
           matchedRsn: existing.dl?.srno || existing.gb?.srno || "",
           matchedImei: existing.dl?.imei || existing.gb?.imei || "",
           matchedIccid: existing.dl?.iccid || existing.gb?.iccid || "",
@@ -38,24 +41,57 @@ async function findDuplicates(dl, gb) {
     }
   }
 
-  return duplicateInfo;
+  return matches;
+}
+
+// A FULL duplicate = every one of RSN/IMEI/ICCID (and MACID for
+// Zigbee) matched the SAME previous record. If the matches point to
+// different previous records, or don't cover every checked field,
+// it's only a partial duplicate.
+function isFullDuplicate(matches, protocol) {
+  const requiredFields = protocol === "Zigbee"
+    ? ["RSN", "IMEI", "ICCID", "MACID"]
+    : ["RSN", "IMEI", "ICCID"];
+
+  const matchedFields = new Set(matches.map((m) => m.field));
+  const allFieldsCovered = requiredFields.every((f) => matchedFields.has(f));
+  if (!allFieldsCovered) return false;
+
+  // All matches (for the required fields) must point to the exact
+  // same previous record for this to count as a full duplicate.
+  const relevantMatches = matches.filter((m) => requiredFields.includes(m.field));
+  const recordIds = new Set(relevantMatches.map((m) => m.matchedRecordId));
+  return recordIds.size === 1;
 }
 
 router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
-    // Check BEFORE creating. If any RSN/IMEI/ICCID/MACID already exists
-    // in a previous record, reject entirely — nothing gets saved.
-    const duplicateInfo = await findDuplicates(dl, gb);
-    if (duplicateInfo.length > 0) {
+    const matches = await findFieldMatches(dl, gb);
+
+    if (matches.length > 0 && isFullDuplicate(matches, protocol)) {
+      // Complete duplicate of one existing record — reject, save nothing.
       return res.status(409).json({
         error: "Duplicate detected",
-        duplicateInfo,
+        duplicateInfo: matches,
       });
     }
 
-    const record = await Record.create({ dl, gb, protocol, createdBy: req.userId });
+    // Either no matches, or only a partial match (e.g. just IMEI
+    // reused with a different RSN/ICCID) — save normally, but flag it
+    // so the warning/report can show which field was reused.
+    const isDuplicate = matches.length > 0;
+
+    const record = await Record.create({
+      dl,
+      gb,
+      protocol,
+      createdBy: req.userId,
+      isDuplicate,
+      duplicateInfo: isDuplicate ? matches : [],
+    });
+
     res.status(201).json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });
