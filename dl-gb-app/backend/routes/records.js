@@ -5,9 +5,8 @@ import requireAuth from "../middleware/auth.js";
 const router = express.Router();
 router.use(requireAuth);
 
-// Fields checked for cross-record duplicates. EAN is intentionally
-// excluded — it's the same across all Modbus units, so checking it
-// would flag every single scan as a duplicate.
+// EAN excluded — it's identical across all Modbus units, so checking
+// it would flag every scan as a duplicate.
 const DUPLICATE_CHECK_FIELDS = [
   { key: "imei", label: "IMEI" },
   { key: "srno", label: "RSN" },
@@ -31,11 +30,9 @@ async function findDuplicates(dl, gb) {
         duplicateInfo.push({
           field: label,
           value: val,
-          matchedRecordId: existing._id,
           matchedRsn: existing.dl?.srno || existing.gb?.srno || "",
           matchedImei: existing.dl?.imei || existing.gb?.imei || "",
           matchedIccid: existing.dl?.iccid || existing.gb?.iccid || "",
-          matchedEan: existing.dl?.ean || existing.gb?.ean || "",
         });
       }
     }
@@ -48,18 +45,17 @@ router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
+    // Check BEFORE creating. If any IMEI/RSN/ICCID already exists in
+    // a previous record, reject entirely — nothing gets saved.
     const duplicateInfo = await findDuplicates(dl, gb);
-    const isDuplicate = duplicateInfo.length > 0;
+    if (duplicateInfo.length > 0) {
+      return res.status(409).json({
+        error: "Duplicate detected",
+        duplicateInfo,
+      });
+    }
 
-    const record = await Record.create({
-      dl,
-      gb,
-      protocol,
-      createdBy: req.userId,
-      isDuplicate,
-      duplicateInfo,
-    });
-
+    const record = await Record.create({ dl, gb, protocol, createdBy: req.userId });
     res.status(201).json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });
