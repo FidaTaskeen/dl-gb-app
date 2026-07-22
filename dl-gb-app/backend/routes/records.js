@@ -5,20 +5,15 @@ import requireAuth from "../middleware/auth.js";
 const router = express.Router();
 router.use(requireAuth);
 
-// Fields checked for cross-record duplicates, and the label used in
-// the warning message shown to the operator.
+// Fields checked for cross-record duplicates. EAN is intentionally
+// excluded — it's the same across all Modbus units, so checking it
+// would flag every single scan as a duplicate.
 const DUPLICATE_CHECK_FIELDS = [
   { key: "imei", label: "IMEI" },
   { key: "srno", label: "RSN" },
   { key: "iccid", label: "ICCID" },
-  { key: "ean", label: "EAN" },
 ];
 
-// Looks at the incoming dl/gb data and finds any IMEI, RSN, ICCID, or EAN
-// value that already exists in a previous record's dl or gb fields.
-// Covers both cases: the same DL (or GB) label reused in a new check,
-// and the same whole DL+GB pair submitted again — since a full-pair
-// repeat will simply match on every field at once.
 async function findDuplicates(dl, gb) {
   const duplicateInfo = [];
 
@@ -53,8 +48,6 @@ router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
-    // Check against everything already in the database BEFORE creating
-    // this record, so it only ever matches genuinely previous scans.
     const duplicateInfo = await findDuplicates(dl, gb);
     const isDuplicate = duplicateInfo.length > 0;
 
