@@ -134,7 +134,7 @@ export default function CheckPage() {
       setResult(res.data);
     } catch (err) {
       if (err.response?.status === 409) {
-        // Full duplicate rejected by the server — nothing was saved.
+        // Duplicate rejected by the server — nothing was saved.
         setDuplicateResult(err.response.data.duplicateInfo || []);
       } else {
         setError("Failed to submit.");
@@ -186,25 +186,6 @@ export default function CheckPage() {
             <button className="btn-ghost" onClick={handleLogout}>Logout</button>
           </div>
         </div>
-
-        {/* Partial-field duplicate warning — the record IS saved and
-            shows up in Reports; this just informs the operator which
-            specific field was reused from a previous scan. */}
-        {result?.isDuplicate && (
-          <div
-            className="panel"
-            style={{ background: "#FEF9C3", border: "2px solid #F59E0B", marginBottom: 20 }}
-          >
-            <p style={{ fontWeight: 800, color: "#92400E", margin: "0 0 8px", fontSize: 15 }}>
-              ⚠ Duplicate Field Detected
-            </p>
-            {(result.duplicateInfo || []).map((d, idx) => (
-              <p key={idx} style={{ fontSize: 13, color: "#92400E", margin: "4px 0" }}>
-                This {d.field} is used with RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}.
-              </p>
-            ))}
-          </div>
-        )}
 
         {/* DL and GB side by side, equal width/height, each with a static device image */}
         <div className="check-scan-row">

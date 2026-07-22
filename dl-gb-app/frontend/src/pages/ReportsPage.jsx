@@ -102,7 +102,6 @@ export default function ReportsPage() {
                 </th>
                 <th rowSpan={2}>Status</th>
                 <th rowSpan={2}>Failure Reason</th>
-                <th rowSpan={2}>Duplicate</th>
                 <th rowSpan={2}>Date & Time</th>
                 <th rowSpan={2}>Scanned By</th>
               </tr>
@@ -141,52 +140,6 @@ export default function ReportsPage() {
                       <span className={r.status === "PASS" ? "status-pass" : "status-fail"}>{r.status}</span>
                     </td>
                     <td>{r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`}</td>
-                    <td>
-                      {r.isDuplicate ? (
-                        <div
-                          title={(r.duplicateInfo || [])
-                            .map((d) => `${d.field} ${d.value} — also used with RSN ${d.matchedRsn || "-"}, IMEI ${d.matchedImei || "-"}, ICCID ${d.matchedIccid || "-"}`)
-                            .join("\n")}
-                          style={{
-                            display: "inline-flex",
-                            flexDirection: "column",
-                            gap: 2,
-                            cursor: "help",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              background: "#FEF3C7",
-                              color: "#78350F",
-                              fontWeight: 700,
-                              fontSize: 12,
-                              padding: "5px 10px 5px 8px",
-                              borderRadius: 7,
-                              border: "1px solid #FBBF24",
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: "50%",
-                                background: "#D97706",
-                                flexShrink: 0,
-                              }}
-                            />
-                            Reused field
-                          </span>
-                          <span style={{ fontSize: 11, color: "#B45309", paddingLeft: 2 }}>
-                            {(r.duplicateInfo || []).map((d) => d.field).join(" · ")}
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ color: "#9CA3AF", fontSize: 13 }}>—</span>
-                      )}
-                    </td>
                     <td>{new Date(r.createdAt).toLocaleString()}</td>
                     <td>
                       <span className="user-popup-wrapper">
