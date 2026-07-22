@@ -29,6 +29,18 @@ const recordSchema = new mongoose.Schema(
     status: { type: String, enum: ["PASS", "FAIL"], required: true },
     mismatchParams: { type: String, default: "OK" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    isDuplicate: { type: Boolean, default: false },
+    duplicateInfo: [
+      {
+        field: String,
+        value: String,
+        matchedRecordId: { type: mongoose.Schema.Types.ObjectId, ref: "Record" },
+        matchedRsn: String,
+        matchedImei: String,
+        matchedIccid: String,
+        matchedEan: String,
+      },
+    ],
   },
   { timestamps: true }
 );
