@@ -29,6 +29,22 @@ const recordSchema = new mongoose.Schema(
     status: { type: String, enum: ["PASS", "FAIL"], required: true },
     mismatchParams: { type: String, default: "OK" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    // Duplicate tracking: set by the route before creation, based on
+    // whether any IMEI/RSN/ICCID/EAN value in this record already
+    // appears in a previous record's DL or GB fields.
+    isDuplicate: { type: Boolean, default: false },
+    duplicateInfo: [
+      {
+        field: String, // "IMEI" | "RSN" | "ICCID" | "EAN"
+        value: String,
+        matchedRecordId: { type: mongoose.Schema.Types.ObjectId, ref: "Record" },
+        matchedRsn: String,
+        matchedImei: String,
+        matchedIccid: String,
+        matchedEan: String,
+      },
+    ],
   },
   { timestamps: true }
 );

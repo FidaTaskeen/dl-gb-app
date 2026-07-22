@@ -5,10 +5,68 @@ import requireAuth from "../middleware/auth.js";
 const router = express.Router();
 router.use(requireAuth);
 
+// Fields checked for cross-record duplicates, and the label used in
+// the warning message shown to the operator.
+const DUPLICATE_CHECK_FIELDS = [
+  { key: "imei", label: "IMEI" },
+  { key: "srno", label: "RSN" },
+  { key: "iccid", label: "ICCID" },
+  { key: "ean", label: "EAN" },
+];
+
+// Looks at the incoming dl/gb data and finds any IMEI, RSN, ICCID, or EAN
+// value that already exists in a previous record's dl or gb fields.
+// Covers both cases: the same DL (or GB) label reused in a new check,
+// and the same whole DL+GB pair submitted again — since a full-pair
+// repeat will simply match on every field at once.
+async function findDuplicates(dl, gb) {
+  const duplicateInfo = [];
+
+  for (const { key, label } of DUPLICATE_CHECK_FIELDS) {
+    const dlVal = dl?.[key];
+    const gbVal = gb?.[key];
+    const valuesToCheck = [...new Set([dlVal, gbVal].filter(Boolean))];
+
+    for (const val of valuesToCheck) {
+      const existing = await Record.findOne({
+        $or: [{ [`dl.${key}`]: val }, { [`gb.${key}`]: val }],
+      }).sort({ createdAt: -1 });
+
+      if (existing) {
+        duplicateInfo.push({
+          field: label,
+          value: val,
+          matchedRecordId: existing._id,
+          matchedRsn: existing.dl?.srno || existing.gb?.srno || "",
+          matchedImei: existing.dl?.imei || existing.gb?.imei || "",
+          matchedIccid: existing.dl?.iccid || existing.gb?.iccid || "",
+          matchedEan: existing.dl?.ean || existing.gb?.ean || "",
+        });
+      }
+    }
+  }
+
+  return duplicateInfo;
+}
+
 router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
-    const record = await Record.create({ dl, gb, protocol, createdBy: req.userId });
+
+    // Check against everything already in the database BEFORE creating
+    // this record, so it only ever matches genuinely previous scans.
+    const duplicateInfo = await findDuplicates(dl, gb);
+    const isDuplicate = duplicateInfo.length > 0;
+
+    const record = await Record.create({
+      dl,
+      gb,
+      protocol,
+      createdBy: req.userId,
+      isDuplicate,
+      duplicateInfo,
+    });
+
     res.status(201).json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -35,6 +93,15 @@ router.get("/", async (req, res) => {
 
     const total = await Record.countDocuments(filter);
     res.json({ records, total, page: Number(page) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/clear-all", async (req, res) => {
+  try {
+    const result = await Record.deleteMany({});
+    res.json({ deletedCount: result.deletedCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
