@@ -5,17 +5,20 @@ import requireAuth from "../middleware/auth.js";
 const router = express.Router();
 router.use(requireAuth);
 
-// Fields checked for cross-record duplicates. EAN is intentionally
-// excluded — it's the same across all Modbus units, so checking it
-// would flag every single scan as a duplicate.
+// EAN is intentionally excluded — same across every Modbus unit.
 const DUPLICATE_CHECK_FIELDS = [
-  { key: "imei", label: "IMEI" },
   { key: "srno", label: "RSN" },
+  { key: "imei", label: "IMEI" },
   { key: "iccid", label: "ICCID" },
+  { key: "macId", label: "MACID" }, // only meaningful for Zigbee; empty/blank values are skipped below
 ];
 
+// Finds every previous record that shares an RSN, IMEI, ICCID, or MAC ID
+// with the current dl/gb data. Returns the matched field info plus the
+// single earliest matching record (the "original" this counts against).
 async function findDuplicates(dl, gb) {
   const duplicateInfo = [];
+  let earliestOriginal = null;
 
   for (const { key, label } of DUPLICATE_CHECK_FIELDS) {
     const dlVal = dl?.[key];
@@ -25,30 +28,37 @@ async function findDuplicates(dl, gb) {
     for (const val of valuesToCheck) {
       const existing = await Record.findOne({
         $or: [{ [`dl.${key}`]: val }, { [`gb.${key}`]: val }],
-      }).sort({ createdAt: -1 });
+      }).sort({ createdAt: 1 }); // earliest first
 
       if (existing) {
         duplicateInfo.push({
           field: label,
           value: val,
-          matchedRecordId: existing._id,
           matchedRsn: existing.dl?.srno || existing.gb?.srno || "",
           matchedImei: existing.dl?.imei || existing.gb?.imei || "",
           matchedIccid: existing.dl?.iccid || existing.gb?.iccid || "",
-          matchedEan: existing.dl?.ean || existing.gb?.ean || "",
         });
+
+        // Track the single earliest matching record across all fields —
+        // that's the canonical "original" this duplicate counts against.
+        // If that original is itself already a duplicate, count against
+        // ITS original instead, so counts always roll up to the true first scan.
+        const canonicalId = existing.duplicateOf || existing._id;
+        if (!earliestOriginal || existing.createdAt < earliestOriginal.createdAt) {
+          earliestOriginal = { _id: canonicalId, createdAt: existing.createdAt };
+        }
       }
     }
   }
 
-  return duplicateInfo;
+  return { duplicateInfo, originalId: earliestOriginal?._id || null };
 }
 
 router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
-    const duplicateInfo = await findDuplicates(dl, gb);
+    const { duplicateInfo, originalId } = await findDuplicates(dl, gb);
     const isDuplicate = duplicateInfo.length > 0;
 
     const record = await Record.create({
@@ -57,10 +67,23 @@ router.post("/", async (req, res) => {
       protocol,
       createdBy: req.userId,
       isDuplicate,
+      duplicateOf: isDuplicate ? originalId : null,
       duplicateInfo,
     });
 
-    res.status(201).json(record);
+    let occurrenceCount = 1;
+    if (isDuplicate && originalId) {
+      const original = await Record.findByIdAndUpdate(
+        originalId,
+        { $inc: { duplicateCount: 1 } },
+        { new: true }
+      );
+      // How many total times this DL/GB identity has now been scanned,
+      // including the very first (original) scan.
+      occurrenceCount = (original?.duplicateCount || 0) + 1;
+    }
+
+    res.status(201).json({ ...record.toObject(), occurrenceCount });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
