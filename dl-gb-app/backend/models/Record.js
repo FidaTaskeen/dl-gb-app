@@ -29,23 +29,6 @@ const recordSchema = new mongoose.Schema(
     status: { type: String, enum: ["PASS", "FAIL"], required: true },
     mismatchParams: { type: String, default: "OK" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-
-    // Duplicate tracking. EAN is intentionally never checked — it's
-    // identical across all Modbus units.
-    isDuplicate: { type: Boolean, default: false },
-    duplicateOf: { type: mongoose.Schema.Types.ObjectId, ref: "Record", default: null },
-    duplicateInfo: [
-      {
-        field: String, // "RSN" | "IMEI" | "ICCID" | "MACID"
-        value: String,
-        matchedRsn: String,
-        matchedImei: String,
-        matchedIccid: String,
-      },
-    ],
-    // Only meaningful on an "original" (non-duplicate) record — counts
-    // how many later scans were flagged as duplicates of this one.
-    duplicateCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
