@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import { useProtocol } from "../context/ProtocolContext";
-import { downloadExcelReport } from "../utils/excelReport";
 
 const DL_BG = "#EFF6FF";
 const GB_BG = "#FFF7ED";
@@ -10,26 +9,20 @@ const DL_HEADER_BG = "#DBEAFE";
 const GB_HEADER_BG = "#FFEDD5";
 const MISMATCH_BG = "#FEF2F2";
 
-export default function ReportsPage() {
+export default function DuplicateReportPage() {
   const { protocol } = useProtocol();
   const [records, setRecords] = useState([]);
-  const [date, setDate] = useState("");
   const [loading, setLoading] = useState(true);
 
   const fetchRecords = () => {
     setLoading(true);
-    const params = {};
-    if (date) {
-      params.from = `${date}T00:00:00`;
-      params.to = `${date}T23:59:59`;
-    }
-    client.get("/records", { params }).then((res) => {
+    client.get("/records", { params: { limit: 2000 } }).then((res) => {
       setRecords(res.data.records);
       setLoading(false);
     });
   };
 
-  useEffect(fetchRecords, [date]);
+  useEffect(fetchRecords, []);
 
   const getScannedBy = (r) => {
     if (r.createdBy && typeof r.createdBy === "object") {
@@ -56,7 +49,9 @@ export default function ReportsPage() {
     return mismatches;
   };
 
-  const filteredRecords = records.filter((r) => getProtocol(r) === protocol);
+  // Only duplicates, filtered to the currently selected protocol —
+  // this is what makes the report separate per Modbus/Zigbee.
+  const duplicateRecords = records.filter((r) => r.isDuplicate && getProtocol(r) === protocol);
   const showMacId = protocol === "Zigbee";
 
   const cellStyle = (isMismatch, groupBg) => ({
@@ -65,24 +60,20 @@ export default function ReportsPage() {
     background: isMismatch ? MISMATCH_BG : groupBg,
   });
 
-  const handleDownload = () => {
-    downloadExcelReport(filteredRecords, protocol, date);
-  };
-
   return (
     <div style={{ maxWidth: 1300, margin: "0 auto", padding: "50px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ fontSize: 35, color: "black", margin: 0 }}>{protocol} Report</h2>
+        <h2 style={{ fontSize: 35, color: "black", margin: 0 }}>{protocol} Duplicate Report</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Link to="/dashboard" style={{ color: "black" }}>Dashboard</Link>
-          <Link to="/duplicates" style={{ color: "black" }}>Duplicates</Link>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "auto" }} />
-          <button onClick={handleDownload}>Download Excel</button>
+          <Link to="/reports" style={{ color: "black" }}>{protocol} Report</Link>
         </div>
       </div>
 
       {loading ? (
         <p style={{ color: "#7C8A93" }}>Loading...</p>
+      ) : duplicateRecords.length === 0 ? (
+        <p style={{ color: "#7C8A93", marginTop: 20 }}>No duplicates found for {protocol}.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ marginTop: 20, borderCollapse: "collapse" }}>
@@ -102,7 +93,8 @@ export default function ReportsPage() {
                   GB
                 </th>
                 <th rowSpan={2}>Status</th>
-                <th rowSpan={2}>Failure Reason</th>
+                <th rowSpan={2}>Duplicate Fields</th>
+                <th rowSpan={2}>Matched With (RSN)</th>
                 <th rowSpan={2}>Date & Time</th>
                 <th rowSpan={2}>Scanned By</th>
               </tr>
@@ -120,11 +112,11 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((r, i) => {
+              {duplicateRecords.map((r, i) => {
                 const mismatch = getMismatchSet(r);
                 const scannedBy = getScannedBy(r);
                 return (
-                  <tr key={r._id}>
+                  <tr key={r._id} style={{ background: "#FEFCE8" }}>
                     <td>{i + 1}</td>
                     <td style={{ ...cellStyle(mismatch.has("RSN"), DL_BG), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
                     <td style={cellStyle(mismatch.has("IMEI"), DL_BG)}>{r.dl?.imei || "-"}</td>
@@ -140,7 +132,20 @@ export default function ReportsPage() {
                       <span className={`status-light ${r.status === "PASS" ? "status-pass" : "status-fail"}`} />
                       <span className={r.status === "PASS" ? "status-pass" : "status-fail"}>{r.status}</span>
                     </td>
-                    <td>{r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`}</td>
+                    <td>
+                      {(r.duplicateInfo || []).map((d, idx) => (
+                        <div key={idx} style={{ fontSize: 12 }}>
+                          {d.field}: {d.value}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {(r.duplicateInfo || []).map((d, idx) => (
+                        <div key={idx} style={{ fontSize: 12 }}>
+                          {d.matchedRsn || "-"}
+                        </div>
+                      ))}
+                    </td>
                     <td>{new Date(r.createdAt).toLocaleString()}</td>
                     <td>
                       <span className="user-popup-wrapper">
