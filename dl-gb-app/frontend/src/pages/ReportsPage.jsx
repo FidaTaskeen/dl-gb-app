@@ -143,26 +143,46 @@ export default function ReportsPage() {
                     <td>{r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`}</td>
                     <td>
                       {r.isDuplicate ? (
-                        <span
+                        <div
                           title={(r.duplicateInfo || [])
                             .map((d) => `${d.field} ${d.value} — also used with RSN ${d.matchedRsn || "-"}, IMEI ${d.matchedImei || "-"}, ICCID ${d.matchedIccid || "-"}`)
                             .join("\n")}
                           style={{
                             display: "inline-flex",
-                            alignItems: "center",
-                            gap: 5,
-                            background: "#FFFBEB",
-                            border: "1.5px solid #F59E0B",
-                            color: "#B45309",
-                            fontWeight: 700,
-                            fontSize: 12,
-                            padding: "4px 10px",
-                            borderRadius: 999,
+                            flexDirection: "column",
+                            gap: 2,
                             cursor: "help",
                           }}
                         >
-                          ⚠ {(r.duplicateInfo || []).map((d) => d.field).join(", ")}
-                        </span>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              background: "#FEF3C7",
+                              color: "#78350F",
+                              fontWeight: 700,
+                              fontSize: 12,
+                              padding: "5px 10px 5px 8px",
+                              borderRadius: 7,
+                              border: "1px solid #FBBF24",
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: "#D97706",
+                                flexShrink: 0,
+                              }}
+                            />
+                            Reused field
+                          </span>
+                          <span style={{ fontSize: 11, color: "#B45309", paddingLeft: 2 }}>
+                            {(r.duplicateInfo || []).map((d) => d.field).join(" · ")}
+                          </span>
+                        </div>
                       ) : (
                         <span style={{ color: "#9CA3AF", fontSize: 13 }}>—</span>
                       )}
