@@ -9,6 +9,8 @@ const GB_BG = "#FFF7ED";
 const DL_HEADER_BG = "#DBEAFE";
 const GB_HEADER_BG = "#FFEDD5";
 const MISMATCH_BG = "#FEF2F2";
+const DUPLICATE_BG = "#FEF9C3";
+const DUPLICATE_BORDER = "#F59E0B";
 
 export default function ReportsPage() {
   const { protocol } = useProtocol();
@@ -56,14 +58,29 @@ export default function ReportsPage() {
     return mismatches;
   };
 
+  const getDuplicateFieldSet = (r) => {
+    const fields = new Set();
+    (r.duplicateInfo || []).forEach((d) => fields.add(d.field));
+    return fields;
+  };
+
   const filteredRecords = records.filter((r) => getProtocol(r) === protocol);
   const showMacId = protocol === "Zigbee";
 
-  const cellStyle = (isMismatch, groupBg) => ({
-    color: isMismatch ? "#DC2626" : undefined,
-    fontWeight: isMismatch ? 700 : undefined,
-    background: isMismatch ? MISMATCH_BG : groupBg,
-  });
+  const cellStyle = (isMismatch, groupBg, isDuplicateField) => {
+    if (isDuplicateField) {
+      return {
+        color: "#92400E",
+        fontWeight: 700,
+        background: DUPLICATE_BG,
+      };
+    }
+    return {
+      color: isMismatch ? "#DC2626" : undefined,
+      fontWeight: isMismatch ? 700 : undefined,
+      background: isMismatch ? MISMATCH_BG : groupBg,
+    };
+  };
 
   const handleDownload = () => {
     downloadExcelReport(filteredRecords, protocol, date);
@@ -121,23 +138,44 @@ export default function ReportsPage() {
             <tbody>
               {filteredRecords.map((r, i) => {
                 const mismatch = getMismatchSet(r);
+                const dupFields = getDuplicateFieldSet(r);
                 const scannedBy = getScannedBy(r);
                 return (
-                  <tr key={r._id}>
+                  <tr
+                    key={r._id}
+                    style={r.isDuplicate ? { outline: `2px solid ${DUPLICATE_BORDER}`, outlineOffset: "-1px" } : undefined}
+                  >
                     <td>{i + 1}</td>
-                    <td style={{ ...cellStyle(mismatch.has("RSN"), DL_BG), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
-                    <td style={cellStyle(mismatch.has("IMEI"), DL_BG)}>{r.dl?.imei || "-"}</td>
-                    <td style={cellStyle(mismatch.has("EAN"), DL_BG)}>{r.dl?.ean || "-"}</td>
-                    <td style={cellStyle(mismatch.has("ICCID"), DL_BG)}>{r.dl?.iccid || "-"}</td>
-                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), DL_BG)}>{r.dl?.macId || "-"}</td>}
-                    <td style={{ ...cellStyle(mismatch.has("RSN"), GB_BG), borderLeft: "3px solid #FDBA74" }}>{r.gb?.srno || "-"}</td>
-                    <td style={cellStyle(mismatch.has("IMEI"), GB_BG)}>{r.gb?.imei || "-"}</td>
-                    <td style={cellStyle(mismatch.has("EAN"), GB_BG)}>{r.gb?.ean || "-"}</td>
-                    <td style={cellStyle(mismatch.has("ICCID"), GB_BG)}>{r.gb?.iccid || "-"}</td>
-                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), GB_BG)}>{r.gb?.macId || "-"}</td>}
+                    <td style={{ ...cellStyle(mismatch.has("RSN"), DL_BG, dupFields.has("RSN")), borderLeft: "3px solid #93C5FD" }}>{r.dl?.srno || "-"}</td>
+                    <td style={cellStyle(mismatch.has("IMEI"), DL_BG, dupFields.has("IMEI"))}>{r.dl?.imei || "-"}</td>
+                    <td style={cellStyle(mismatch.has("EAN"), DL_BG, dupFields.has("EAN"))}>{r.dl?.ean || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), DL_BG, dupFields.has("ICCID"))}>{r.dl?.iccid || "-"}</td>
+                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), DL_BG, dupFields.has("MACID"))}>{r.dl?.macId || "-"}</td>}
+                    <td style={{ ...cellStyle(mismatch.has("RSN"), GB_BG, dupFields.has("RSN")), borderLeft: "3px solid #FDBA74" }}>{r.gb?.srno || "-"}</td>
+                    <td style={cellStyle(mismatch.has("IMEI"), GB_BG, dupFields.has("IMEI"))}>{r.gb?.imei || "-"}</td>
+                    <td style={cellStyle(mismatch.has("EAN"), GB_BG, dupFields.has("EAN"))}>{r.gb?.ean || "-"}</td>
+                    <td style={cellStyle(mismatch.has("ICCID"), GB_BG, dupFields.has("ICCID"))}>{r.gb?.iccid || "-"}</td>
+                    {showMacId && <td style={cellStyle(mismatch.has("MACID"), GB_BG, dupFields.has("MACID"))}>{r.gb?.macId || "-"}</td>}
                     <td>
                       <span className={`status-light ${r.status === "PASS" ? "status-pass" : "status-fail"}`} />
                       <span className={r.status === "PASS" ? "status-pass" : "status-fail"}>{r.status}</span>
+                      {r.isDuplicate && (
+                        <span
+                          title={(r.duplicateInfo || []).map((d) => `${d.field} ${d.value}`).join(", ")}
+                          style={{
+                            marginLeft: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#92400E",
+                            background: DUPLICATE_BG,
+                            border: `1px solid ${DUPLICATE_BORDER}`,
+                            borderRadius: 4,
+                            padding: "1px 5px",
+                          }}
+                        >
+                          ⚠ Duplicate
+                        </span>
+                      )}
                     </td>
                     <td>{r.status === "PASS" ? "-" : `${r.mismatchParams} mismatch`}</td>
                     <td>{new Date(r.createdAt).toLocaleString()}</td>
