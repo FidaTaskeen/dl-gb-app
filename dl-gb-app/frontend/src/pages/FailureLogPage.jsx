@@ -44,6 +44,18 @@ export default function FailureLogPage() {
     return "Unknown";
   };
 
+  // Logs are already sorted newest-first from the backend. Assign a
+  // serial number per UNIQUE scanAttemptId (not per row), so multiple
+  // field failures from the same scan share one S.No.
+  const scanNumberMap = new Map();
+  let nextScanNumber = logs.length; // highest number = most recent scan
+  logs.forEach((l) => {
+    if (!scanNumberMap.has(l.scanAttemptId)) {
+      scanNumberMap.set(l.scanAttemptId, nextScanNumber);
+      nextScanNumber -= 1;
+    }
+  });
+
   return (
     <div style={{ maxWidth: 1300, margin: "0 auto", padding: "50px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -89,6 +101,7 @@ export default function FailureLogPage() {
           <table style={{ marginTop: 20, borderCollapse: "collapse" }}>
             <thead>
               <tr>
+                <th>S.No</th>
                 <th>Date</th>
                 <th>Time</th>
                 <th>Protocol</th>
@@ -101,10 +114,22 @@ export default function FailureLogPage() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((l) => {
+              {logs.map((l, idx) => {
                 const dt = new Date(l.createdAt);
+                const scanNo = scanNumberMap.get(l.scanAttemptId);
+                // First row of a new scan number gets a visible label;
+                // subsequent rows for the SAME scan repeat the number
+                // but with a lighter top border to show they're grouped.
+                const isFirstOfGroup = idx === 0 || logs[idx - 1].scanAttemptId !== l.scanAttemptId;
                 return (
-                  <tr key={l._id} style={{ background: l.failureType === "DUPLICATE" ? "#FEFCE8" : "#FEF2F2" }}>
+                  <tr
+                    key={l._id}
+                    style={{
+                      background: l.failureType === "DUPLICATE" ? "#FEFCE8" : "#FEF2F2",
+                      borderTop: isFirstOfGroup ? "2px solid #D1D5DB" : "none",
+                    }}
+                  >
+                    <td style={{ fontWeight: 700, color: "#4B5563" }}>{scanNo}</td>
                     <td>{dt.toLocaleDateString()}</td>
                     <td>{dt.toLocaleTimeString()}</td>
                     <td>{l.protocol}</td>

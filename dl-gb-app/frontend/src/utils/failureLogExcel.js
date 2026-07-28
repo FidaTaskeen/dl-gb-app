@@ -5,6 +5,7 @@ export async function downloadFailureLogExcel(logs) {
   const sheet = workbook.addWorksheet("Failure Log");
 
   sheet.columns = [
+    { header: "S.No", key: "sno", width: 8 },
     { header: "Date", key: "date", width: 14 },
     { header: "Time", key: "time", width: 14 },
     { header: "Protocol", key: "protocol", width: 12 },
@@ -24,11 +25,23 @@ export async function downloadFailureLogExcel(logs) {
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
 
+  // Same grouping logic as the on-screen table — one S.No per unique
+  // scanAttemptId, not per row.
+  const scanNumberMap = new Map();
+  let nextScanNumber = logs.length;
+  logs.forEach((l) => {
+    if (!scanNumberMap.has(l.scanAttemptId)) {
+      scanNumberMap.set(l.scanAttemptId, nextScanNumber);
+      nextScanNumber -= 1;
+    }
+  });
+
   logs.forEach((l) => {
     const dt = new Date(l.createdAt);
     const loggedBy = (l.createdBy && typeof l.createdBy === "object" ? l.createdBy.username : "") || "Unknown";
 
     const row = sheet.addRow({
+      sno: scanNumberMap.get(l.scanAttemptId),
       date: dt.toLocaleDateString(),
       time: dt.toLocaleTimeString(),
       protocol: l.protocol,
