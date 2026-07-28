@@ -134,7 +134,6 @@ export default function CheckPage() {
       setResult(res.data);
     } catch (err) {
       if (err.response?.status === 409) {
-        // Duplicate rejected by the server — nothing was saved.
         setDuplicateResult(err.response.data.duplicateInfo || []);
       } else {
         setError("Failed to submit.");
@@ -175,6 +174,7 @@ export default function CheckPage() {
             <div className="nav-box-row">
               <Link to="/dashboard" className="nav-box nav-box-solid">Dashboard</Link>
               <Link to="/reports" className="nav-box nav-box-outline">{protocol} Report</Link>
+              <Link to="/failure-log" className="nav-box nav-box-outline">Failure Log</Link>
               <span className="model-badge">
                 <span className="model-badge-label">Model</span>
                 <span className="model-badge-value">{protocol}</span>
@@ -187,7 +187,6 @@ export default function CheckPage() {
           </div>
         </div>
 
-        {/* DL and GB side by side, equal width/height, each with a static device image */}
         <div className="check-scan-row">
           <div className="panel panel-accent scan-box-equal scan-box-with-image">
             <div className="scan-box-image-wrap">
