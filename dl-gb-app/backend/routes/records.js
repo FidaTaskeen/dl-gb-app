@@ -1,11 +1,13 @@
 import express from "express";
 import Record from "../models/Record.js";
+import FailureLog from "../models/FailureLog.js";
 import requireAuth from "../middleware/auth.js";
 
 const router = express.Router();
 router.use(requireAuth);
 
-// EAN excluded — identical across all Modbus units.
+const FIELD_KEY_MAP = { RSN: "srno", IMEI: "imei", EAN: "ean", ICCID: "iccid", MACID: "macId" };
+
 const DUPLICATE_CHECK_FIELDS = [
   { key: "srno", label: "RSN" },
   { key: "imei", label: "IMEI" },
@@ -30,6 +32,7 @@ async function findDuplicates(dl, gb) {
         duplicateInfo.push({
           field: label,
           value: val,
+          matchedRecordId: existing._id,
           matchedRsn: existing.dl?.srno || existing.gb?.srno || "",
           matchedImei: existing.dl?.imei || existing.gb?.imei || "",
           matchedIccid: existing.dl?.iccid || existing.gb?.iccid || "",
@@ -45,17 +48,51 @@ router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
-    // ANY single field match (RSN, IMEI, ICCID, or MACID) blocks the
-    // whole submission — full or partial duplicate, nothing is saved.
     const duplicateInfo = await findDuplicates(dl, gb);
     if (duplicateInfo.length > 0) {
-      return res.status(409).json({
-        error: "Duplicate detected",
-        duplicateInfo,
-      });
+      await Promise.all(
+        duplicateInfo.map((d) =>
+          FailureLog.create({
+            protocol,
+            failureType: "DUPLICATE",
+            failureReason: `Duplicate ${d.field}`,
+            fieldName: d.field,
+            scannedValue: d.value,
+            relatedRecordId: d.matchedRecordId || null,
+            relatedRsn: d.matchedRsn,
+            relatedImei: d.matchedImei,
+            relatedIccid: d.matchedIccid,
+            createdBy: req.userId,
+          })
+        )
+      );
+
+      return res.status(409).json({ error: "Duplicate detected", duplicateInfo });
     }
 
     const record = await Record.create({ dl, gb, protocol, createdBy: req.userId });
+
+    if (record.status === "FAIL") {
+      const mismatchFields = record.mismatchParams.split(",").map((s) => s.trim()).filter(Boolean);
+      await Promise.all(
+        mismatchFields.map((field) => {
+          const key = FIELD_KEY_MAP[field];
+          const dlValue = record.dl?.[key] || "";
+          const gbValue = record.gb?.[key] || "";
+          return FailureLog.create({
+            protocol,
+            failureType: "MISMATCH",
+            failureReason: `${field} mismatch`,
+            fieldName: field,
+            scannedValue: `DL: ${dlValue || "-"} | GB: ${gbValue || "-"}`,
+            dlValue,
+            gbValue,
+            createdBy: req.userId,
+          });
+        })
+      );
+    }
+
     res.status(201).json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });
