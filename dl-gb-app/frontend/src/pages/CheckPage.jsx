@@ -8,7 +8,7 @@ import { parseLabelXml } from "../utils/xmlParser";
 import deviceImage from "../assets/device-image.png";
 import deviceBoxImage from "../assets/device-box-image.png";
 
-const AUTO_CLEAR_DELAY_MS = 10000;
+const AUTO_CLEAR_DELAY_MS = 20000;
 
 export default function CheckPage() {
   const { username, logout } = useAuth();
