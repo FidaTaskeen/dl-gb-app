@@ -16,7 +16,6 @@ export default function CheckPage() {
   const [dl, setDl] = useState(null);
   const [gb, setGb] = useState(null);
   const [result, setResult] = useState(null);
-  const [duplicateResult, setDuplicateResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(null);
@@ -37,7 +36,7 @@ export default function CheckPage() {
     clearTimeout(autoClearTimerRef.current);
     clearInterval(countdownIntervalRef.current);
 
-    if (!result && !duplicateResult) {
+    if (!result) {
       setCountdown(null);
       return;
     }
@@ -59,7 +58,6 @@ export default function CheckPage() {
       dlDataRef.current = null;
       gbDataRef.current = null;
       setResult(null);
-      setDuplicateResult(null);
       setCountdown(null);
       autoSubmittedRef.current = false;
       dlRef.current?.focus();
@@ -69,7 +67,7 @@ export default function CheckPage() {
       clearTimeout(autoClearTimerRef.current);
       clearInterval(countdownIntervalRef.current);
     };
-  }, [result, duplicateResult]);
+  }, [result]);
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) logout();
@@ -127,18 +125,12 @@ export default function CheckPage() {
     }
     setError("");
     setResult(null);
-    setDuplicateResult(null);
     setLoading(true);
     try {
       const res = await client.post("/records", { dl: dlData, gb: gbData, protocol });
       setResult(res.data);
     } catch (err) {
-      if (err.response?.status === 409) {
-        // Duplicate rejected by the server — nothing was saved.
-        setDuplicateResult(err.response.data.duplicateInfo || []);
-      } else {
-        setError("Failed to submit.");
-      }
+      setError("Failed to submit.");
     } finally {
       setLoading(false);
     }
@@ -175,6 +167,7 @@ export default function CheckPage() {
             <div className="nav-box-row">
               <Link to="/dashboard" className="nav-box nav-box-solid">Dashboard</Link>
               <Link to="/reports" className="nav-box nav-box-outline">{protocol} Report</Link>
+              <Link to="/failure-logs" className="nav-box nav-box-outline">Failure Log Report</Link>
               <span className="model-badge">
                 <span className="model-badge-label">Model</span>
                 <span className="model-badge-value">{protocol}</span>
@@ -223,7 +216,7 @@ export default function CheckPage() {
 
         {error && <p className="error-text">{error}</p>}
 
-        {!result && !duplicateResult && (
+        {!result && (
           <button
             onClick={submitCheck}
             disabled={loading || !dl || !gb}
@@ -236,27 +229,7 @@ export default function CheckPage() {
         <div className="check-result-row">
           <div className="panel result-panel result-panel-centered">
             <h3 className="result-title">Status</h3>
-            {duplicateResult ? (
-              <>
-                <span
-                  className="status-light"
-                  style={{ width: 18, height: 18, background: "#F59E0B" }}
-                />
-                <span className="result-status" style={{ color: "#F59E0B" }}>
-                  DUPLICATE
-                </span>
-                {duplicateResult.map((d, idx) => (
-                  <p key={idx} className="result-mismatch">
-                    {d.field} {d.value} already used — RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}
-                  </p>
-                ))}
-                {countdown !== null && countdown > 0 && (
-                  <p className="auto-clear-countdown">
-                    Clearing in {countdown} second{countdown === 1 ? "" : "s"}...
-                  </p>
-                )}
-              </>
-            ) : result ? (
+            {result ? (
               <>
                 <span
                   className={`status-light ${result.status === "PASS" ? "status-pass" : "status-fail"}`}
@@ -282,6 +255,36 @@ export default function CheckPage() {
             )}
           </div>
         </div>
+
+        {/* Duplicate device / repeated parameter warnings. This is purely additive —
+            it never replaces or affects the PASS/FAIL result above. */}
+        {result && result.duplicateStatus && result.duplicateStatus !== "Unique" && (
+          <div className="dup-warning-stack">
+            {result.duplicateStatus === "Duplicate Device" ? (
+              <div className="dup-warning-box">
+                <p className="dup-warning-title">⚠ Duplicate Device Detected</p>
+                <p className="dup-warning-body">
+                  This device has already been scanned.
+                  {result.duplicateCount ? ` Duplicate count: ${result.duplicateCount}.` : ""}
+                  {result.previousScanAt
+                    ? ` Previous scan: ${new Date(result.previousScanAt).toLocaleString()}.`
+                    : ""}
+                </p>
+              </div>
+            ) : (
+              (result.repeatedParams || []).map((p, idx) => (
+                <div className="dup-warning-box" key={idx}>
+                  <p className="dup-warning-title">⚠ {p.param} Already Used</p>
+                  <p className="dup-warning-body">
+                    {p.param}: {p.value}
+                    <br />
+                    Already used with {p.description}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
