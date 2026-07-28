@@ -14,6 +14,9 @@ const failureLogSchema = new mongoose.Schema(
     relatedImei: String,
     relatedIccid: String,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    // Shared by every row logged from the same scan/submit attempt, so
+    // the UI can group multiple field failures from one scan together.
+    scanAttemptId: { type: String, required: true },
   },
   { timestamps: true }
 );

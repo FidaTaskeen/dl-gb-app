@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import Record from "../models/Record.js";
 import FailureLog from "../models/FailureLog.js";
 import requireAuth from "../middleware/auth.js";
@@ -48,6 +49,11 @@ router.post("/", async (req, res) => {
   try {
     const { dl, gb, protocol } = req.body;
 
+    // One ID per submit attempt — every FailureLog row created below
+    // (whether from a duplicate or a mismatch) shares this same value,
+    // so the UI can group them as "one scan."
+    const scanAttemptId = crypto.randomUUID();
+
     const duplicateInfo = await findDuplicates(dl, gb);
     if (duplicateInfo.length > 0) {
       await Promise.all(
@@ -63,6 +69,7 @@ router.post("/", async (req, res) => {
             relatedImei: d.matchedImei,
             relatedIccid: d.matchedIccid,
             createdBy: req.userId,
+            scanAttemptId,
           })
         )
       );
@@ -88,6 +95,7 @@ router.post("/", async (req, res) => {
             dlValue,
             gbValue,
             createdBy: req.userId,
+            scanAttemptId,
           });
         })
       );
