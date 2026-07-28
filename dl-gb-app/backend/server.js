@@ -4,7 +4,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import recordRoutes from "./routes/records.js";
-import failureLogRoutes from "./routes/failureLogs.js";
 
 dotenv.config();
 
@@ -14,7 +13,6 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/records", recordRoutes);
-app.use("/api/failure-logs", failureLogRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
