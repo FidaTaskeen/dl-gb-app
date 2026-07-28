@@ -44,14 +44,29 @@ export default function FailureLogPage() {
     return "Unknown";
   };
 
-  // Logs are already sorted newest-first from the backend. Assign a
-  // serial number per UNIQUE scanAttemptId (not per row), so multiple
-  // field failures from the same scan share one S.No.
+  // Assign a serial number per unique scanAttemptId, and precompute
+  // how many rows belong to each group (for rowSpan) plus which row
+  // is the first of its group (only the first renders the S.No/Date/
+  // Time/Protocol/Related-record cells, spanning down over the rest).
   const scanNumberMap = new Map();
-  let nextScanNumber = logs.length; // highest number = most recent scan
+  const groupSizeMap = new Map();
+  let nextScanNumber = 0;
   logs.forEach((l) => {
-    if (!scanNumberMap.has(l.scanAttemptId)) {
+    groupSizeMap.set(l.scanAttemptId, (groupSizeMap.get(l.scanAttemptId) || 0) + 1);
+  });
+  const seenGroups = new Set();
+  logs.forEach((l) => {
+    if (!seenGroups.has(l.scanAttemptId)) {
+      seenGroups.add(l.scanAttemptId);
+    }
+  });
+  const totalGroups = seenGroups.size;
+  nextScanNumber = totalGroups;
+  const assigned = new Set();
+  logs.forEach((l) => {
+    if (!assigned.has(l.scanAttemptId)) {
       scanNumberMap.set(l.scanAttemptId, nextScanNumber);
+      assigned.add(l.scanAttemptId);
       nextScanNumber -= 1;
     }
   });
@@ -117,10 +132,8 @@ export default function FailureLogPage() {
               {logs.map((l, idx) => {
                 const dt = new Date(l.createdAt);
                 const scanNo = scanNumberMap.get(l.scanAttemptId);
-                // First row of a new scan number gets a visible label;
-                // subsequent rows for the SAME scan repeat the number
-                // but with a lighter top border to show they're grouped.
                 const isFirstOfGroup = idx === 0 || logs[idx - 1].scanAttemptId !== l.scanAttemptId;
+                const groupSize = groupSizeMap.get(l.scanAttemptId);
                 return (
                   <tr
                     key={l._id}
@@ -129,20 +142,30 @@ export default function FailureLogPage() {
                       borderTop: isFirstOfGroup ? "2px solid #D1D5DB" : "none",
                     }}
                   >
-                    <td style={{ fontWeight: 700, color: "#4B5563" }}>{scanNo}</td>
-                    <td>{dt.toLocaleDateString()}</td>
-                    <td>{dt.toLocaleTimeString()}</td>
-                    <td>{l.protocol}</td>
+                    {isFirstOfGroup && (
+                      <>
+                        <td rowSpan={groupSize} style={{ fontWeight: 700, color: "#4B5563", verticalAlign: "top", background: "#F3F4F6" }}>
+                          {scanNo}
+                        </td>
+                        <td rowSpan={groupSize} style={{ verticalAlign: "top" }}>{dt.toLocaleDateString()}</td>
+                        <td rowSpan={groupSize} style={{ verticalAlign: "top" }}>{dt.toLocaleTimeString()}</td>
+                        <td rowSpan={groupSize} style={{ verticalAlign: "top" }}>{l.protocol}</td>
+                      </>
+                    )}
                     <td>{l.failureType}</td>
                     <td>{l.failureReason}</td>
                     <td>{l.fieldName}</td>
                     <td>{l.scannedValue}</td>
-                    <td>
-                      {l.failureType === "DUPLICATE"
-                        ? `RSN: ${l.relatedRsn || "-"}, IMEI: ${l.relatedImei || "-"}, ICCID: ${l.relatedIccid || "-"}`
-                        : "-"}
-                    </td>
-                    <td>{getLoggedBy(l)}</td>
+                    {isFirstOfGroup && (
+                      <td rowSpan={groupSize} style={{ verticalAlign: "top" }}>
+                        {l.failureType === "DUPLICATE"
+                          ? `RSN: ${l.relatedRsn || "-"}, IMEI: ${l.relatedImei || "-"}, ICCID: ${l.relatedIccid || "-"}`
+                          : "-"}
+                      </td>
+                    )}
+                    {isFirstOfGroup && (
+                      <td rowSpan={groupSize} style={{ verticalAlign: "top" }}>{getLoggedBy(l)}</td>
+                    )}
                   </tr>
                 );
               })}
