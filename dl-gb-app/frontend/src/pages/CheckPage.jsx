@@ -242,13 +242,11 @@ export default function CheckPage() {
                   style={{ width: 18, height: 18, background: "#F59E0B" }}
                 />
                 <span className="result-status" style={{ color: "#F59E0B" }}>
-                  DUPLICATE
+                  DUPLICATE ({duplicateResult.map((d) => d.field).join(", ")})
                 </span>
-                {duplicateResult.map((d, idx) => (
-                  <p key={idx} className="result-mismatch">
-                    {d.field} {d.value} already used — RSN {d.matchedRsn || "-"}, IMEI {d.matchedImei || "-"}, ICCID {d.matchedIccid || "-"}
-                  </p>
-                ))}
+                <p className="result-mismatch">
+                  See Failure Log for full details.
+                </p>
                 {countdown !== null && countdown > 0 && (
                   <p className="auto-clear-countdown">
                     Clearing in {countdown} second{countdown === 1 ? "" : "s"}...
